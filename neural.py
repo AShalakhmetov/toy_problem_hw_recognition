@@ -67,9 +67,6 @@ class NNModel(nn.Module):
         x = x.permute(0, 3, 2, 1)
         x = x.contiguous()
 
-        # x = x.view(-1, self.num_flat_features(x))
-        # x = F.relu(self.fc1(x))
-
         # Reshape to RNN size
         x = x.view(self.batch_, self.timesteps_, -1)
 
