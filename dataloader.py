@@ -11,14 +11,15 @@ import os.path
 from PIL import Image
 from torchvision import datasets, transforms
 
-
-LETTERS_ALPHA_ = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y']
+LETTERS_ALPHA_ = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T',
+                  'X', 'Y']
 NUMBERS_ = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 IMG_EXTENSIONS_ = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif']
 
 TYPE_PLATE_ = 'PLATE_RECO'
 TYPE_MNIST_E_ = 'EXTENDED_MNIST_RECO'
 TYPE_IAM_ = 'I_AM_RECO'
+
 
 def has_file_allowed_extension(filename, extensions):
     filename_lower = filename.lower()
@@ -27,28 +28,29 @@ def has_file_allowed_extension(filename, extensions):
 
 def text_to_labels(text, letters):
     return list(map(lambda x: letters.index(x), text))
-  
+
 
 def make_dataset(pth, extensions, chars=LETTERS_ALPHA_):
     images = []
     dir = os.path.expanduser(pth)
     for target in sorted(os.listdir(dir)):
-      d = os.path.join(dir, target)
-  
-      if has_file_allowed_extension(target, extensions):
-        fname = os.path.splitext(target)[0]
-        item = (d, text_to_labels(fname, chars))
-        images.append(item)
-        # item = (target, text_to_labels(fname, chars))
-        # images.append(item)
+        d = os.path.join(dir, target)
+
+        if has_file_allowed_extension(target, extensions):
+            fname = os.path.splitext(target)[0]
+            item = (d, text_to_labels(fname, chars))
+            images.append(item)
+            #         item = (target, text_to_labels(fname, chars))
+            #         images.append(item)
 
     return images
 
-  
+
 def pil_loader(path):
     with open(path, 'rb') as f:
         img = Image.open(f)
         return img.convert('RGB')
+
 
 def accimage_loader(path):
     import accimage
@@ -65,7 +67,7 @@ def default_loader(path):
         return accimage_loader(path)
     else:
         return pil_loader(path)
-      
+
 
 class ImageDatasetFolder(data.Dataset):
     """A generic data loader where the samples are arranged in this way: ::
@@ -97,7 +99,7 @@ class ImageDatasetFolder(data.Dataset):
     def __init__(self, root, type=TYPE_MNIST_E_,
                  loader=default_loader, transform=transforms.ToTensor(),
                  target_transform=None):
-                 # target_transform=transforms.ToTensor()):
+        #                  target_transform=transforms.ToTensor()):
         #         classes, class_to_idx = text_to_labels(root)
 
         self.root, self.extensions, self.chars = self.__genparams__(type)
@@ -109,8 +111,8 @@ class ImageDatasetFolder(data.Dataset):
 
         samples = make_dataset(self.root, self.extensions, self.chars)
         if len(samples) == 0:
-            raise (RuntimeError("Found 0 files in subfolders of: " + root + "\n"
-                                                                            "Supported extensions are: " + ",".join(IMG_EXTENSIONS_)))
+            raise (RuntimeError("Found 0 files in subfolders of: " + root + "\n" +
+                                "Supported extensions are: " + ",".join(IMG_EXTENSIONS_)))
 
         self.samples = samples
 
@@ -133,7 +135,7 @@ class ImageDatasetFolder(data.Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return sample, target, 
+        return sample, target,
 
     def __len__(self):
         return len(self.samples)
@@ -167,7 +169,6 @@ class ImageDatasetFolder(data.Dataset):
         self.__makedir__(root_dir)
 
         for i in range(dataset_size):
-
             np.random.seed(1234)
 
             im1, l1 = self.__getrandomsample__(mnist)
@@ -218,11 +219,10 @@ class ImageDatasetFolder(data.Dataset):
             label = [l1, l2, l3, l4, l5]
 
             ret_img = Image.fromarray(full, mode='L')
-            path = root_dir + '\\' + ''.join(label) + '.png'
+            path = root_dir + '/' + ''.join(label) + '.png'
             ret_img.save(path)
 
         return root_dir
-
 
     def __genparams__(self, type):
         if type == TYPE_PLATE_:
@@ -242,13 +242,12 @@ class ImageDatasetFolder(data.Dataset):
         # ri = np.random.randint(dataset.__len__(), size=1)
         ri = random.randrange(0, dataset.__len__(), 1)
         im, l = dataset.__getitem__(ri)
-        return np.array(im), str(l.item())
+        return np.array(im), str(l)
 
     def __plus_minus_proba__(self, a):
         plus = random.uniform(0, a)
         minus = random.uniform(0, a)
         return plus, minus
-
 
 
 idf = ImageDatasetFolder(root=None, type=TYPE_MNIST_E_)

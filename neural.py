@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 
 class NNModel(nn.Module):
-    def __init__(self, img_w = 140, img_h = 28, timesteps=5, batch_size=32, outsize=10, loss='CTC', optim='Adam'):
+    def __init__(self, img_w=140, img_h=28, timesteps=5, batch_size=32, outsize=10, loss='CTC', optim='Adam'):
         super(NNModel, self).__init__()
         self.img_w_ = img_w
         self.img_h_ = img_h
@@ -40,7 +40,7 @@ class NNModel(nn.Module):
         else:
             self.optimizer_ = optim.Adam(self.parameters(), lr=lr)
 
-    def build_net_(self, input_channels=1, conv_filters=16, kernel_size=(3, 3), rnn_input=3920, rnn_size=512):
+    def build_net_(self, input_channels=3, conv_filters=16, kernel_size=(3, 3), rnn_input=528, rnn_size=512):
         self.conv1 = nn.Conv2d(input_channels, conv_filters, kernel_size)  # TODO: what padding we must set?
         # TODO: ReLU
         # TODO: MaxPool2D = (2,2)
@@ -53,9 +53,9 @@ class NNModel(nn.Module):
         # TODO: ReLU
 
         self.gru1 = nn.GRU(rnn_input, rnn_size, bidirectional=True, batch_first=True)
-        self.gru2 = nn.GRU(rnn_size, rnn_size, bidirectional=True, batch_first=True)
+        self.gru2 = nn.GRU(1024, rnn_size, bidirectional=True, batch_first=True)
 
-        self.fc2 = nn.Linear(rnn_size, self.outsize_) # TODO: reset output size
+        self.fc2 = nn.Linear(rnn_size, self.outsize_)  # TODO: reset output size
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -73,13 +73,20 @@ class NNModel(nn.Module):
         x, (h_n, h_c) = self.gru1(x)
         x, (h_n, h_c) = self.gru2(x)
 
-        # r_out, (h_n, h_c) = self.rnn(r_in)
-        # r_out2 = self.linear(r_out[:, -1, :])
+        #         print(x[:, -1, :].shape)
+        #         x = x[:, -1, :]
+        #         x = self.num_flat_features(x[-1])
 
-        x = self.fc2(x[:, -1, :])
-        x = F.softmax(x)
+        #         x = self.fc2(x)
 
-        return x
+        #         h_n = self.num_flat_features(h_n)
+        #         x = x.contiguous()
+        #         h_n = h_n.view(-1, h_n)
+
+        out = self.fc2(x)
+
+        out = F.softmax(out)
+        return out
 
     def reshape_tensor(self, x, shape=[32, 256]):
         return x.reshape(shape)
@@ -90,9 +97,6 @@ class NNModel(nn.Module):
         for s in size:
             num_features *= s
         return num_features
-
-
-
 
     def train_model(model, dataloaders, criterion, optimizer, num_epochs=5, is_inception=False):
 
@@ -112,13 +116,13 @@ class NNModel(nn.Module):
                 if phase == 'train':
                     model.train()  # Set model to training mode
                 else:
-                    model.eval()   # Set model to evaluate mode
+                    model.eval()  # Set model to evaluate mode
 
                 running_loss = 0.0
                 running_corrects = 0
 
                 # Iterate over data.
-                for inputs, labels in dataloaders[phase]:
+                for inputs, labels in dataloaders:
                     # inputs = inputs.to(device)
                     # labels = labels.to(device)
 
@@ -135,15 +139,9 @@ class NNModel(nn.Module):
                         # Special case for inception because in training it has an auxiliary output. In train
                         #   mode we calculate the loss by summing the final output and the auxiliary output
                         #   but in testing we only consider the final output.
-                        if is_inception and phase == 'train':
-                            # From https://discuss.pytorch.org/t/how-to-optimize-inception-model-with-auxiliary-classifiers/7958
-                            outputs, aux_outputs = model(inputs)
-                            loss1 = criterion(outputs, labels)
-                            loss2 = criterion(aux_outputs, labels)
-                            loss = loss1 + 0.4*loss2
-                        else:
-                            outputs = model(inputs)
-                            loss = criterion(outputs, labels)
+
+                        outputs = model(inputs)
+                        loss = criterion(outputs, labels)
 
                         _, preds = torch.max(outputs, 1)
 
@@ -178,13 +176,23 @@ class NNModel(nn.Module):
         model.load_state_dict(best_model_wts)
         return model, val_acc_history
 
-model = NNModel()
 
-# print(model.model)
-print(model.criterion)
-print(model.optimizer)
-print(model)
-
-print('-' * 10)
-model.set_params(lr=1e-5)
-print(model.optimizer)
+    def train_min(self, model, train_loader, optimizer, criterion, epoch):
+        train_loss = 0
+        model.train()
+        for batch_idx, (data, target) in enumerate(train_loader):
+#         data, target = data.to(device), target.to(device)
+#         print(data.shape)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+            if batch_idx % 50 == 0 or batch_idx % len(train_loader.dataset) == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    epoch, batch_idx * len(data), len(train_loader.dataset),
+                    100. * batch_idx / len(train_loader), loss.item()))
+        train_loss /= len(train_loader.dataset)
+        print('\nTrain set: Average loss: {:.4f}\n'.format(train_loss))
+        return train_loss
