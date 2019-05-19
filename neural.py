@@ -19,8 +19,8 @@ class NNModel(nn.Module):
         self.device_ = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.loss_ = loss
         self.optim_ = optim
-        self.set_params_(criterion=self.loss_, optimizer=self.optim_)
         self.build_net_()
+        self.set_params_(criterion=self.loss_, optimizer=self.optim_)
 
     def set_params_(self, criterion='CTC', criterion_params=None, optimizer='Adam', lr=1e-3):
         if criterion == 'CrossEntropyLoss' or criterion == 'CEL':
@@ -70,10 +70,13 @@ class NNModel(nn.Module):
         # Reshape to RNN size
         x = x.view(self.batch_, self.timesteps_, -1)
 
-        x = self.gru1(x)
-        x = self.gru2(x)
+        x, (h_n, h_c) = self.gru1(x)
+        x, (h_n, h_c) = self.gru2(x)
 
-        x = self.fc2(x)
+        # r_out, (h_n, h_c) = self.rnn(r_in)
+        # r_out2 = self.linear(r_out[:, -1, :])
+
+        x = self.fc2(x[:, -1, :])
         x = F.softmax(x)
 
         return x

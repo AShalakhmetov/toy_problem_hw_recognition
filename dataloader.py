@@ -3,11 +3,13 @@ from __future__ import print_function, division
 import torch.utils.data as data
 import numpy as np
 import cv2
+import random
 
 import os
 import os.path
 
 from PIL import Image
+from torchvision import datasets, transforms
 
 
 LETTERS_ALPHA_ = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'E', 'H', 'K', 'M', 'O', 'P', 'T', 'X', 'Y']
@@ -27,9 +29,9 @@ def text_to_labels(text, letters):
     return list(map(lambda x: letters.index(x), text))
   
 
-def make_dataset(dir, extensions, chars=LETTERS_ALPHA_):
+def make_dataset(pth, extensions, chars=LETTERS_ALPHA_):
     images = []
-    dir = os.path.expanduser(train_path)
+    dir = os.path.expanduser(pth)
     for target in sorted(os.listdir(dir)):
       d = os.path.join(dir, target)
   
@@ -37,8 +39,8 @@ def make_dataset(dir, extensions, chars=LETTERS_ALPHA_):
         fname = os.path.splitext(target)[0]
         item = (d, text_to_labels(fname, chars))
         images.append(item)
-        item = (target, text_to_labels(fname, chars))
-        images.append(item)
+        # item = (target, text_to_labels(fname, chars))
+        # images.append(item)
 
     return images
 
@@ -92,23 +94,24 @@ class ImageDatasetFolder(data.Dataset):
         samples (list): List of (sample path, class_index) tuples
     """
 
-    def __init__(self, root, type=TYPE_PLATE_,
-                 loader=default_loader, extensions=IMG_EXTENSIONS, chars=LETTERS, transform=None, target_transform=None):
-#         classes, class_to_idx = text_to_labels(root)
+    def __init__(self, root, type=TYPE_MNIST_E_,
+                 loader=default_loader, transform=transforms.ToTensor(),
+                 target_transform=None):
+                 # target_transform=transforms.ToTensor()):
+        #         classes, class_to_idx = text_to_labels(root)
 
+        self.root, self.extensions, self.chars = self.__genparams__(type)
 
+        if root is not None and type != TYPE_MNIST_E_:
+            self.root = root
 
-        samples = make_dataset(root, extensions, chars)
+        self.loader = loader
+
+        samples = make_dataset(self.root, self.extensions, self.chars)
         if len(samples) == 0:
             raise (RuntimeError("Found 0 files in subfolders of: " + root + "\n"
-                                                                            "Supported extensions are: " + ",".join(extensions)))
+                                                                            "Supported extensions are: " + ",".join(IMG_EXTENSIONS_)))
 
-        self.root = root
-        self.loader = loader
-        self.extensions = extensions
-
-#         self.classes = classes
-#         self.class_to_idx = class_to_idx
         self.samples = samples
 
         self.transform = transform
@@ -124,22 +127,12 @@ class ImageDatasetFolder(data.Dataset):
         """
         path, target = self.samples[index]
         sample = self.loader(path)
-        
-        # img = cv2.imread(path)
-        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # img = cv2.resize(img, (128, 64))
-        # img = img.astype(np.float32)
-        # img /= 255
-        # sample = img
 
         if self.transform is not None:
             sample = self.transform(sample)
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        # sample = torch.Tensor(sample)
-        # target = torch.Tensor(target)
-        
         return sample, target, 
 
     def __len__(self):
@@ -154,3 +147,108 @@ class ImageDatasetFolder(data.Dataset):
         tmp = '    Target Transforms (if any): '
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
+
+    def __makedir__(self, path):
+        try:
+            # Create target Directory
+            os.mkdir(path)
+            print("Directory ", path, " Created ")
+        except FileExistsError:
+            print("Directory ", path, " already exists")
+
+    def __gendataset__(self, type=TYPE_MNIST_E_, dataset_size=10000, sample_size=5):
+        mnist = datasets.MNIST(
+            './mnist',
+            train=True,
+            download=True,
+            transform=None)
+
+        root_dir = './e_mnist'
+        self.__makedir__(root_dir)
+
+        for i in range(dataset_size):
+
+            np.random.seed(1234)
+
+            im1, l1 = self.__getrandomsample__(mnist)
+            im2, l2 = self.__getrandomsample__(mnist)
+            im3, l3 = self.__getrandomsample__(mnist)
+            im4, l4 = self.__getrandomsample__(mnist)
+            im5, l5 = self.__getrandomsample__(mnist)
+
+            pp1, pm1 = self.__plus_minus_proba__(0.2)
+            pp2, pm2 = self.__plus_minus_proba__(0.2)
+            pp3, pm3 = self.__plus_minus_proba__(0.2)
+            pp4, pm4 = self.__plus_minus_proba__(0.2)
+            pp5, pm5 = self.__plus_minus_proba__(0.2)
+
+            v1 = im1
+            v2 = im2
+            v3 = im3
+            v4 = im4
+            v5 = im5
+
+            # v1 = im1[im1.shape[0] * pp1:im1.shape[0] * -pm1, :]
+            # v2 = im2[pp2:-pm2, :]
+            # v3 = im3[pp3:-pm3, :]
+            # v4 = im4[pp4:-pm4, :]
+            # v5 = im5[pp5:-pm5, :]
+
+            # v1 = im1[:, int(round(im1.shape[0]*pp1)):]
+            # v2 = im2[:, :int(round(im2.shape[0]* -pm2))]
+            # v3 = im3[:, int(round(im3.shape[0]*pp3)):]
+            # v4 = im4[:, :int(round(im4.shape[0]*-pm4))]
+            # v5 = im5[:, :int(round(im5.shape[0]*-pm5))]
+
+            # print(v1.shape)
+            # print(v2.shape)
+            # print(v3.shape)
+            # print(v4.shape)
+
+
+            img = np.concatenate((v1, v2, v3, v4, v5), axis=1)
+            full = np.zeros((28, 140))
+
+            # offset_plus, offset_minus  = self.__plus_minus_proba__(0.1)
+            # if offset_plus >= offset_minus:
+            #     full[offset_plus:]
+
+            # full[:, :img.shape[1]] = img
+            full = img
+            label = [l1, l2, l3, l4, l5]
+
+            ret_img = Image.fromarray(full, mode='L')
+            path = root_dir + '\\' + ''.join(label) + '.png'
+            ret_img.save(path)
+
+        return root_dir
+
+
+    def __genparams__(self, type):
+        if type == TYPE_PLATE_:
+            return self.root, IMG_EXTENSIONS_, LETTERS_ALPHA_
+        elif type == TYPE_MNIST_E_:
+            root_dir = self.__gendataset__()
+            return root_dir, IMG_EXTENSIONS_, NUMBERS_
+        elif type == TYPE_IAM_:
+            raise (RuntimeError("IAM dataset is not implemented yet."))
+        else:
+            raise (RuntimeError("No such type."))
+
+    def __getrandomsample__(self, dataset):
+        # if not isinstance(dataset, datasets):
+        #     raise (RuntimeError("Passed object is not a dataset."))
+
+        # ri = np.random.randint(dataset.__len__(), size=1)
+        ri = random.randrange(0, dataset.__len__(), 1)
+        im, l = dataset.__getitem__(ri)
+        return np.array(im), str(l.item())
+
+    def __plus_minus_proba__(self, a):
+        plus = random.uniform(0, a)
+        minus = random.uniform(0, a)
+        return plus, minus
+
+
+
+idf = ImageDatasetFolder(root=None, type=TYPE_MNIST_E_)
