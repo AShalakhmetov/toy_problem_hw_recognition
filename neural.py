@@ -1,6 +1,8 @@
 from torchvision import models
 from torch import nn
 from torch import optim
+from torch.autograd import Variable
+from torchvision.models import resnet18
 
 import time
 import copy
@@ -9,7 +11,7 @@ import torch.nn.functional as F
 
 
 class NNModel(nn.Module):
-    def __init__(self, img_w=140, img_h=28, timesteps=5, batch_size=32, outsize=10, loss='CTC', optim='Adam'):
+    def __init__(self, img_w=140, img_h=28, timesteps=5, batch_size=32, outsize=11, loss='CTC', optim='Adam'):
         super(NNModel, self).__init__()
         self.img_w_ = img_w
         self.img_h_ = img_h
@@ -22,14 +24,14 @@ class NNModel(nn.Module):
         self.build_net_()
         self.set_params_(criterion=self.loss_, optimizer=self.optim_)
 
-    def set_params_(self, criterion='CTC', criterion_params=None, optimizer='Adam', lr=1e-3):
+    def set_params_(self, criterion='CTC', criterion_params=None, optimizer='Adam', lr=0.003):
         if criterion == 'CrossEntropyLoss' or criterion == 'CEL':
             self.criterion_ = nn.CrossEntropyLoss()
         elif criterion == 'CTCLoss' or criterion == 'CTC':
             if criterion_params is not None:
                 self.criterion_ = nn.CTCLoss(criterion_params)
             else:
-                self.criterion_ = nn.CTCLoss(reduction='sum')
+                self.criterion_ = nn.CTCLoss(blank=0, zero_infinity=True)
         else:
             self.criterion_ = nn.CrossEntropyLoss()
 
@@ -40,11 +42,11 @@ class NNModel(nn.Module):
         else:
             self.optimizer_ = optim.Adam(self.parameters(), lr=lr)
 
-    def build_net_(self, input_channels=3, conv_filters=16, kernel_size=(3, 3), rnn_input=528, rnn_size=512):
-        self.conv1 = nn.Conv2d(input_channels, conv_filters, kernel_size)  # TODO: what padding we must set?
-        # TODO: ReLU
-        # TODO: MaxPool2D = (2,2)
-        self.conv2 = nn.Conv2d(conv_filters, conv_filters, kernel_size)
+    def build_net_(self, input_channels=3, conv_filters=16, kernel_size=(3, 3), rnn_input=512, rnn_size=512):
+        #         self.conv1 = nn.Conv2d(input_channels, conv_filters, kernel_size)  # TODO: what padding we must set?
+        #         # TODO: ReLU
+        #         # TODO: MaxPool2D = (2,2)
+        #         self.conv2 = nn.Conv2d(conv_filters, conv_filters, kernel_size)
         # TODO: ReLU
         # TODO: MaxPool2D = (2,2)
 
@@ -52,26 +54,60 @@ class NNModel(nn.Module):
         # self.fc1 = nn.Linear(reshaped_size, time_dense_size)
         # TODO: ReLU
 
-        self.gru1 = nn.GRU(rnn_input, rnn_size, bidirectional=True, batch_first=True)
-        self.gru2 = nn.GRU(1024, rnn_size, bidirectional=True, batch_first=True)
+        resnet = resnet18(pretrained=True)
+        modules = list(resnet.children())[:-3]
 
-        self.fc2 = nn.Linear(rnn_size, self.outsize_)  # TODO: reset output size
+        self.resnet = nn.Sequential(*modules)
+        self.conv6 = nn.Conv2d(256, 256, kernel_size, padding=1)
+        self.batch_norm6 = nn.BatchNorm2d(256)
+
+        self.fc1 = nn.Linear(512, 256)
+
+        self.gru1 = nn.GRU(256, 512, bidirectional=True, batch_first=True)
+        self.gru2 = nn.GRU(1024, 512, bidirectional=True, batch_first=True)
+
+        #         self.lstm1 = nn.LSTM(rnn_input, rnn_size, bidirectional=True, batch_first=True)
+        #         self.lstm2 = nn.LSTM(1024, rnn_size, bidirectional=True, batch_first=True)
+
+        self.fc2 = nn.Linear(rnn_size * 2, self.outsize_)  # TODO: reset output size
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.max_pool2d(x, (2, 2))
-        x = F.relu(self.conv2(x))
-        x = F.max_pool2d(x, (2, 2))
+        #         print(x.shape)
+        #         x = F.relu(self.conv1(x))
+        #         x = F.max_pool2d(x, (2, 2))
+        #         x = F.relu(self.conv2(x))
+        #         x = F.max_pool2d(x, (2, 2))
+
+        x = self.resnet(x)
+        x = self.conv6(x)
+        x = F.relu(self.batch_norm6(x))
 
         # Reorder dims
-        x = x.permute(0, 3, 2, 1)
+        #         x = x.permute(0, 3, 2, 1)
+        x = x.permute(0, 3, 1, 2)
         x = x.contiguous()
 
+        #         print (x.shape)
+
         # Reshape to RNN size
-        x = x.view(self.batch_, self.timesteps_, -1)
+        #         x = x.view(self.batch_, self.timesteps_, -1)
+        #         x = x.view(x.shape[0], self.timesteps_, -1)
+
+        x = x.view(x.shape[0], x.size(1), -1)
+
+        x = self.fc1(x)
 
         x, (h_n, h_c) = self.gru1(x)
+
+        # #         print (x.shape)
+
         x, (h_n, h_c) = self.gru2(x)
+
+        #         x, (h_n, h_c) = self.lstm1(x)
+
+        #         print (x.shape)
+
+        #         x, (h_n, h_c) = self.lstm2(x)
 
         #         print(x[:, -1, :].shape)
         #         x = x[:, -1, :]
@@ -83,9 +119,17 @@ class NNModel(nn.Module):
         #         x = x.contiguous()
         #         h_n = h_n.view(-1, h_n)
 
+        #         print (x.shape)
+        #         a = x.contiguous()
+        #         a = a.view(-1, a.size(2))
+        #         print (a.shape)
+
         out = self.fc2(x)
 
-        out = F.softmax(out)
+        #         out = F.softmax(out, dim=2)
+        #         out = F.log_softmax(out, dim=2)
+
+        #         print(out.shape)
         return out
 
     def reshape_tensor(self, x, shape=[32, 256]):

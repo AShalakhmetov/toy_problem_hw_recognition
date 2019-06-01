@@ -27,7 +27,7 @@ def has_file_allowed_extension(filename, extensions):
 
 
 def text_to_labels(text, letters):
-    return list(map(lambda x: letters.index(x), text))
+    return list(map(lambda x: letters.index(x) + 1, text))
 
 
 def make_dataset(pth, extensions, chars=LETTERS_ALPHA_):
@@ -98,8 +98,8 @@ class ImageDatasetFolder(data.Dataset):
 
     def __init__(self, root, type=TYPE_MNIST_E_,
                  loader=default_loader, transform=transforms.ToTensor(),
-                 target_transform=None):
-        #                  target_transform=transforms.ToTensor()):
+                 #                  target_transform=None):
+                 target_transform=transforms.ToTensor()):
         #         classes, class_to_idx = text_to_labels(root)
 
         self.root, self.extensions, self.chars = self.__genparams__(type)
@@ -129,13 +129,15 @@ class ImageDatasetFolder(data.Dataset):
         """
         path, target = self.samples[index]
         sample = self.loader(path)
+        target_len = [len(target)]
 
         if self.transform is not None:
             sample = self.transform(sample)
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+        if self.transform is not None:
+            npa = np.asarray(target)
+            target = torch.from_numpy(npa)
 
-        return sample, target,
+        return sample, target, target_len
 
     def __len__(self):
         return len(self.samples)
