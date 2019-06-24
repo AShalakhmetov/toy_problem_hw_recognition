@@ -21,6 +21,8 @@ class CEMNISTDataloader(CRNNImageDatasetFolder):
         self.__set_samples__(samples)
         self.__settimesteps__(self.sample_size_)
 
+        self.sample_w, self.sample_h = 28 * self.sample_size_, 28  # Predefined values
+
 
     def __gendataset__(self, sample_size, dataset_size=10000):
         mnist = datasets.MNIST(
@@ -75,4 +77,15 @@ class CEMNISTDataloader(CRNNImageDatasetFolder):
         return plus, minus
 
     def __getclassesnum__(self):
+        """
+        Returns number of character classes. NOTE THAT 'blank' CHARACTER IS EXCLUDED AND MUST BE TAKEN INTO ACCOUNT.
+        :return: Number of classes ('blank' excluded)
+        """
         return len(NUMBERS_)
+
+    def __getsamplesize__(self):
+        """
+        Returns sample size. Each sample in MNIST dataset equals 28x28 pixels.
+        :return: Width and height of each sample
+        """
+        return self.sample_w, self.sample_h

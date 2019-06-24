@@ -13,5 +13,18 @@ class PNDataloader(CRNNImageDatasetFolder):
         self.__set_samples__(samples)
         self.__settimesteps__(sample_size)
 
+        self.sample_w, self.sample_h = 152, 34  # Predefined values
+
     def __getclassesnum__(self):
+        """
+        Returns number of character classes. NOTE THAT 'blank' CHARACTER IS EXCLUDED AND MUST BE TAKEN INTO ACCOUNT.
+        :return: Number of classes ('blank' excluded)
+        """
         return len(LETTERS_)
+
+    def __getsamplesize__(self):
+        """
+        Returns sample size. Each sample in ANPR dataset equals 152x34 pixels (dataset created by Supervise.ly).
+        :return: Width and height of each sample
+        """
+        return self.sample_w, self.sample_h
