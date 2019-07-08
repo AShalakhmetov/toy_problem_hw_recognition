@@ -9,6 +9,8 @@ import random
 import os
 import os.path
 
+from utils import utils
+
 from PIL import Image
 from torchvision import datasets, transforms
 
@@ -20,10 +22,6 @@ IMG_EXTENSIONS_ = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif']
 def has_file_allowed_extension(filename, extensions):
     filename_lower = filename.lower()
     return any(filename_lower.endswith(ext) for ext in extensions)
-
-
-def text_to_labels(text, letters):
-    return list(map(lambda x: letters.index(x) + 1, text))
 
 
 def pil_loader(path):
@@ -74,6 +72,7 @@ class CRNNImageDatasetFolder(data.Dataset):
         self.transform = transform
         self.target_transform = target_transform
         self.timestepsize = None
+        self.chars = None
 
     def __getitem__(self, index):
         """
@@ -90,7 +89,7 @@ class CRNNImageDatasetFolder(data.Dataset):
 
         if self.transform is not None:
             sample = self.transform(sample)
-        if self.transform is not None:
+        if self.target_transform is not None:
             npa = np.asarray(target)
             target = torch.from_numpy(npa)
 
@@ -118,7 +117,7 @@ class CRNNImageDatasetFolder(data.Dataset):
             print("Directory ", path, " already exists")
 
 
-    def make_dataset(self, pth, chars, extensions=IMG_EXTENSIONS_):
+    def make_dataset(self, pth, extensions=IMG_EXTENSIONS_):
         """
         This method creates dataset from folder with images. Filename of each image file is used as a label for sample.
         Each character in label encoded as an index of total character list (indices start from 1, thus 0-index is reserved for blank character).
@@ -129,7 +128,7 @@ class CRNNImageDatasetFolder(data.Dataset):
 
         :return:            List of tuples of path to image file and its encoded label
         """
-        assert pth is not None and chars is not None
+        assert pth is not None and self.chars is not None
         images = []
         dir = os.path.expanduser(pth)
         for target in sorted(os.listdir(dir)):
@@ -137,7 +136,8 @@ class CRNNImageDatasetFolder(data.Dataset):
 
             if has_file_allowed_extension(target, extensions):
                 fname = os.path.splitext(target)[0]
-                item = (d, text_to_labels(fname, chars))
+                # item = (d, text_to_labels(fname, chars))
+                item = (d, utils.encode(fname, self.chars))
                 images.append(item)
         return images
 
@@ -148,9 +148,23 @@ class CRNNImageDatasetFolder(data.Dataset):
     def __settimesteps__(self, timestepsize):
         self.timestepsize = timestepsize
 
+    def __set_chars__(self, chars):
+        self.chars = chars
+
+    def __set_target_transforms__(self, transform):
+        self.target_transform = transform
+
     def __gettimesteps__(self):
         assert self.timestepsize is not None
         return self.timestepsize
 
     def __getclassesnum__(self):
         pass
+
+    def __get_chars__(self):
+        assert self.chars is not None
+        return self.chars
+
+    def get_random_sample(self):
+        rand = random.randrange(0, self.__len__(), 1)
+        return self.__getitem__(rand)

@@ -2,9 +2,13 @@ from torch import nn
 from torch import optim
 from torch.autograd import Variable
 from torchvision.models import resnet18
+from torchvision import transforms
 
 import torch
 import torch.nn.functional as F
+
+import matplotlib.pyplot as plt
+from utils import utils
 
 
 class OCRNet(nn.Module):
@@ -145,3 +149,24 @@ class OCRNet(nn.Module):
             test_loss))
 
         return test_loss
+
+
+    def predict(model, pr_loader, do_plot=False):
+        sample = pr_loader.get_random_sample()
+
+        dim_sample = sample.unsqueeze(0)
+        model.eval()
+        output = model(dim_sample)
+
+        tokens = output.softmax(2).argmax(2)
+        tokens = tokens.squeeze(1).numpy()
+
+        text = utils.decode(tokens[0], pr_loader.__get_chars__())
+
+        if do_plot:
+            i = transforms.ToPILImage().__call__(sample)
+            #     i.save('my.png')
+            plt.imshow(i)
+            plt.show()
+
+        return text

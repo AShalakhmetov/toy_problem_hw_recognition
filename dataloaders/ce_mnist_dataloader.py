@@ -16,8 +16,9 @@ class CEMNISTDataloader(CRNNImageDatasetFolder):
     def __init__(self, sample_size=5):
         super().__init__(CEMNISTDataloader, self)
         self.sample_size_ = sample_size
+        self.__set_chars__(chars=NUMBERS_)
         self.root = self.__gendataset__(self.sample_size_)
-        samples = self.make_dataset(self.root, NUMBERS_)
+        samples = self.make_dataset(self.root)
         self.__set_samples__(samples)
         self.__settimesteps__(self.sample_size_)
 
