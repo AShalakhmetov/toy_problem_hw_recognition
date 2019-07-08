@@ -127,6 +127,7 @@ class OCRNet(nn.Module):
         if total_len == 0:
             total_len = len(test_loader.dataset)
         test_loss = 0
+        accuracy_score = 0
         with torch.no_grad():
             for batch_idx, (data, target, length) in enumerate(test_loader):
                 output = self(data)
@@ -144,9 +145,11 @@ class OCRNet(nn.Module):
                 loss = criterion(logits, target, logits_lens, target_lengths)
                 test_loss += loss.item()
 
+                accuracy_score = accuracy_score + utils.custom_accuracy_score(output, utils.decode_target(target.numpy(), test_loader.__get_chars__()), test_loader.__get_chars__())
+
         test_loss /= total_len
-        print('\nTest set: Average loss: {:.4f}\n'.format(
-            test_loss))
+        print('\nTest set: Average loss: {:.4f}; Accuracy: {:.4f}%\n'.format(
+            test_loss, accuracy_score/total_len * 100))
 
         return test_loss
 

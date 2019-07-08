@@ -11,3 +11,14 @@ def decode(labels, letters):
     chunks = labels_to_text(labels=labels, letters=letters)
     return ''.join(
         [char for chunk in chunks for idx, char in enumerate(chunk) if char != chunk[idx - 1] or len(chunk) == 1])
+
+def decode_target(labels, letters):
+    chunks = labels_to_text(labels=labels, letters=letters)
+    return ''.join(chunks)
+
+def custom_accuracy_score(output, decoded_target, letters):
+    logits = output.softmax(2).argmax(2)
+    logits = logits.squeeze(1).numpy()
+
+    text = decode(logits[0], letters)
+    return 1 if text == decoded_target else 0
