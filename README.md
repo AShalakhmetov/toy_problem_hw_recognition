@@ -5,6 +5,6 @@ Feature Exctractor: Resnet16 (pre-trained)
 RNN: 2-layer GRU  
 Loss function: CTCLoss  
 
-### Dataset:
+### Datasets:
 - MNIST digits  
 - Plate Numbers Dataset (https://github.com/DeepSystems/supervisely-tutorials/tree/master/anpr)
